@@ -1,0 +1,27 @@
+# macOS系统文件
+.DS_Store
+
+# Python缓存
+__pycache__/
+*.pyc
+
+# 打包文件
+build/
+dist/
+*.spec
+
+# 数据库配置文件（如果包含敏感信息）
+db_config.py
+
+# 日志文件
+*.log
+
+# IDE配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Streamlit缓存
+.streamlit/cache/
