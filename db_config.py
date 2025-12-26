@@ -1,5 +1,5 @@
 MYSQL_INFO = {
-    "host": "localhost",    
+    "host": "rm-wz97096ub2u939ab1eo.mysql.rds.aliyuncs.com",    
     "user": "root",         
     "password": "!Penguang12345",         
     "database": "web_pipeline", 
