@@ -201,7 +201,7 @@ def get_trend_data(time_period_type, current_start_date):
 st.set_page_config(page_title=TITLE, page_icon="💰", layout="wide")
 
 # 自定义标题样式：调小字体并改为深蓝色
-st.markdown("""
+st.markdown(f"""
 <style>
 /* 标题样式 */
 h1 {{ font-size: 30px !important; color: #1a5276 !important; }}
