@@ -197,7 +197,35 @@ def get_trend_data(time_period_type, current_start_date):
 # ===================== Streamlit可视化 =====================
 # 1. 网页基础设置
 st.set_page_config(page_title=TITLE, page_icon="💰", layout="wide")
-st.title(TITLE)
+
+# 自定义标题样式：调小字体并改为深蓝色
+st.markdown(f"""
+<style>
+/* 标题样式 */
+h1 {{ font-size: 30px !important; color: #1a5276 !important; }}
+
+/* 直接定位Streamlit生成的指标组件，为其添加边框 */
+[data-testid="metric-container"] {{ 
+    padding: 1rem !important; 
+    border-radius: 0.5rem !important; 
+    border: 1px solid #e0e0e0 !important; 
+    background-color: white !important; 
+    width: 100% !important; 
+    box-sizing: border-box !important; 
+    margin: 0 !important; 
+}}
+
+/* 确保在移动端正常显示 */
+@media (max-width: 768px) {{
+    [data-testid="metric-container"] {{ 
+        padding: 0.5rem !important; 
+    }}
+}}
+</style>
+""", unsafe_allow_html=True)
+
+# 使用markdown显示标题，避免st.title的默认样式
+st.markdown(f"<h1>{TITLE}</h1>", unsafe_allow_html=True)
 
 # 2. 时间选择控件
 st.sidebar.subheader("时间范围选择")
@@ -256,9 +284,32 @@ total_assets = df_sum['总资产'] if df_sum['总资产'] is not None else 0
 total_liabilities = df_sum['总负债'] if df_sum['总负债'] is not None else 0
 net_assets = df_sum['净资产'] if df_sum['净资产'] is not None else 0
 
-c1.metric("总资产 💰", f"¥{total_assets:,.2f}")
-c2.metric("总负债 💳", f"¥{total_liabilities:,.2f}")
-c3.metric("净资产 💎", f"¥{net_assets:,.2f}")
+# 创建自定义指标卡片函数
+def create_metric_card(label, value):
+    return f"""
+    <div style="
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #e0e0e0;
+        background-color: white;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    ">
+        <div style="font-size: 14px; color: #666; margin-bottom: 0.5rem;">{label}</div>
+        <div style="font-size: 24px; font-weight: bold;">{value}</div>
+    </div>
+    """
+
+# 添加自定义指标卡片
+with c1:
+    st.markdown(create_metric_card("总资产 💰", f"¥{total_assets:,.2f}"), unsafe_allow_html=True)
+
+with c2:
+    st.markdown(create_metric_card("总负债 💳", f"¥{total_liabilities:,.2f}"), unsafe_allow_html=True)
+
+with c3:
+    st.markdown(create_metric_card("净资产 💎", f"¥{net_assets:,.2f}"), unsafe_allow_html=True)
 
 # 5. 趋势折线图（近3个时间单位的总资产/负债变化）
 st.subheader("总资产负债趋势")
