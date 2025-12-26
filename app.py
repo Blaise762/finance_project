@@ -203,13 +203,23 @@ st.set_page_config(page_title=TITLE, page_icon="💰", layout="wide")
 # 自定义标题样式：调小字体并改为深蓝色
 st.markdown("""
 <style>
-/* 标题样式 */
-h1 {{ font-size: 30px !important; color: #1a5276 !important; }}
-h2 {{ font-size: 24px !important; }}
+/* 标题样式 - 使用更具体的选择器覆盖Streamlit默认样式 */
+h1, .stHeadingContainer h1, [data-testid="stMarkdownContainer"] h1 {
+    font-size: 30px !important; 
+    color: #1a5276 !important; 
+}
 
-h3 {{ font-size: 20px !important; }}
+h2, .stHeadingContainer h2, [data-testid="stMarkdownContainer"] h2 {
+    font-size: 22px !important; 
+    color: #1a5276 !important; 
+}
 
-/* 直接定位Streamlit生成的指标组件，为其添加边框 */
+h3, .stHeadingContainer h3, [data-testid="stMarkdownContainer"] h3 {
+    font-size: 22px !important; 
+    color: #1a5276 !important; 
+}
+
+/* 直接定位Streamlit生成的指标组件,为其添加边框 */
 [data-testid="metric-container"] {{ 
     padding: 1rem !important; 
     border-radius: 0.5rem !important; 
@@ -253,7 +263,7 @@ h3 {{ font-size: 20px !important; }}
         width: 100% !important; 
     }}
     
-    /* 调整主内容区 */
+    /* 调整主内容区 - 减少顶部留白 */
     [data-testid="stAppViewBlockContainer"] {{ 
         padding: 0.5rem !important; 
     }}
@@ -261,17 +271,41 @@ h3 {{ font-size: 20px !important; }}
     /* 调整自定义指标卡片内的字体大小 */
     .metric-card-value {{ 
         font-size: 16px !important; 
+        font-weight: bold; 
     }}
     
     .metric-card-label {{ 
         font-size: 12px !important; 
     }}
-}}
+}
+
+/* 减少页面整体顶部留白 */
+[data-testid="stAppViewBlockContainer"] {
+    padding-top: 0rem !important;
+}
+
+/* 减少标题顶部margin */
+h1 {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* 减少Streamlit页面顶部的额外留白 */
+[data-testid="stHeader"] {
+    height: 0rem !important;
+    padding: 0 !important;
+}
+
+/* 进一步调整页面顶部边距 */
+body {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# 使用markdown显示标题，避免st.title的默认样式
-st.markdown(f"<h1>{TITLE}</h1>", unsafe_allow_html=True)
+# 使用markdown显示标题，并添加内联样式确保生效
+st.markdown(f"<h1 style='font-size: 30px !important; color: #1a5276 !important;'>{TITLE}</h1>", unsafe_allow_html=True)
 
 # 2. 时间选择控件
 st.sidebar.subheader("时间范围选择")
@@ -330,8 +364,8 @@ total_assets = df_sum['总资产'] if df_sum['总资产'] is not None else 0
 total_liabilities = df_sum['总负债'] if df_sum['总负债'] is not None else 0
 net_assets = df_sum['净资产'] if df_sum['净资产'] is not None else 0
 
-# 创建自定义指标卡片函数
-def create_metric_card(label, value):
+# 创建自定义指标卡片函数 - 添加颜色参数控制数值颜色
+def create_metric_card(label, value, value_color="#000000"):
     return f"""
     <div style="
         padding: 1rem;
@@ -343,22 +377,22 @@ def create_metric_card(label, value):
         text-align: center;
     ">
         <div class="metric-card-label" style="font-size: 14px; color: #666; margin-bottom: 0.5rem;">{label}</div>
-        <div class="metric-card-value" style="font-size: 24px; font-weight: bold;">{value}</div>
+        <div class="metric-card-value" style="font-size: 24px; font-weight: bold; color: {value_color};">{value}</div>
     </div>
     """
 
-# 添加自定义指标卡片
+# 添加自定义指标卡片，设置不同数值颜色
 with c1:
-    st.markdown(create_metric_card("总资产 💰", f"¥{total_assets:,.2f}"), unsafe_allow_html=True)
+    st.markdown(create_metric_card("总资产 💰", f"¥{total_assets:,.2f}", value_color="#1a5276"), unsafe_allow_html=True)  # 深蓝色
 
 with c2:
-    st.markdown(create_metric_card("总负债 💳", f"¥{total_liabilities:,.2f}"), unsafe_allow_html=True)
+    st.markdown(create_metric_card("总负债 💳", f"¥{total_liabilities:,.2f}", value_color="#ff0000"), unsafe_allow_html=True)  # 红色
 
 with c3:
-    st.markdown(create_metric_card("净资产 💎", f"¥{net_assets:,.2f}"), unsafe_allow_html=True)
+    st.markdown(create_metric_card("净资产 💎", f"¥{net_assets:,.2f}", value_color="#0368C9"), unsafe_allow_html=True)  # 浅蓝色
 
 # 5. 趋势折线图（近3个时间单位的总资产/负债变化）
-st.subheader("总资产负债趋势")
+st.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>总资产负债趋势</h2>", unsafe_allow_html=True)
 if time_period != "自定义":  # 自定义时间粒度不显示趋势图
     # 获取趋势数据
     trend_df = get_trend_data(time_period, start_date)
@@ -403,7 +437,7 @@ else:
 c1, c2 = st.columns(2)
 # 资产饼图
 asset_df = df_detail[df_detail['subject_type']=='资产']
-c1.subheader("资产构成")
+c1.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>资产构成</h2>", unsafe_allow_html=True)
 if not asset_df.empty:
     # 创建资产饼图并优化
     asset_fig = px.pie(asset_df, values="current_balance", names="subject_name", hole=0.3)
@@ -418,7 +452,7 @@ else:
     c1.info("当前时间范围内没有资产数据")
 # 负债饼图
 debt_df = df_detail[df_detail["subject_type"]=="负债"]
-c2.subheader("负债构成")
+c2.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>负债构成</h2>", unsafe_allow_html=True)
 if not debt_df.empty:
     # 创建负债饼图并优化
     debt_fig = px.pie(debt_df, values="current_balance", names="subject_name", hole=0.3)
