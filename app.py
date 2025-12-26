@@ -15,6 +15,7 @@ def get_db_conn():
         st.stop()
 
 #2:获取核心数据
+@st.cache_data(ttl=3600)  # 缓存1小时
 def get_data(time_period_type, start_date=None, end_date=None):
     conn = get_db_conn()
     
@@ -77,6 +78,7 @@ def get_data(time_period_type, start_date=None, end_date=None):
         return df_detail, df_sum_filled
 
 #3:获取趋势数据（近3个时间单位）
+@st.cache_data(ttl=3600)  # 缓存1小时
 def get_trend_data(time_period_type, current_start_date):
     conn = get_db_conn()
     trend_data = []
@@ -199,10 +201,13 @@ def get_trend_data(time_period_type, current_start_date):
 st.set_page_config(page_title=TITLE, page_icon="💰", layout="wide")
 
 # 自定义标题样式：调小字体并改为深蓝色
-st.markdown(f"""
+st.markdown("""
 <style>
 /* 标题样式 */
 h1 {{ font-size: 30px !important; color: #1a5276 !important; }}
+h2 {{ font-size: 24px !important; }}
+
+h3 {{ font-size: 20px !important; }}
 
 /* 直接定位Streamlit生成的指标组件，为其添加边框 */
 [data-testid="metric-container"] {{ 
@@ -216,9 +221,50 @@ h1 {{ font-size: 30px !important; color: #1a5276 !important; }}
 }}
 
 /* 确保在移动端正常显示 */
-@media (max-width: 768px) {{
+@media (max-width: 768px) {
+    /* 进一步调整标题大小，解决重合问题 */
+    h1 {{ font-size: 22px !important; line-height: 1.2 !important; }}
+    h2 {{ font-size: 18px !important; line-height: 1.2 !important; }}
+    h3 {{ font-size: 16px !important; line-height: 1.2 !important; }}
+    
+    /* 调整指标容器 */
     [data-testid="metric-container"] {{ 
+        padding: 0.4rem !important; 
+    }}
+    
+    /* 调整自定义卡片 */
+    [id^="metric-card"] {{ 
+        padding: 0.4rem !important; 
+    }}
+    
+    /* 调整图表容器 */
+    .plot-container {{ 
+        margin: 0 !important; 
+        padding: 0 !important; 
+    }}
+    
+    /* 调整表格样式 */
+    .dataframe-container {{ 
+        font-size: 12px !important; 
+    }}
+    
+    /* 调整侧边栏 */
+    [data-testid="stSidebar"] {{ 
+        width: 100% !important; 
+    }}
+    
+    /* 调整主内容区 */
+    [data-testid="stAppViewBlockContainer"] {{ 
         padding: 0.5rem !important; 
+    }}
+    
+    /* 调整自定义指标卡片内的字体大小 */
+    .metric-card-value {{ 
+        font-size: 16px !important; 
+    }}
+    
+    .metric-card-label {{ 
+        font-size: 12px !important; 
     }}
 }}
 </style>
@@ -296,8 +342,8 @@ def create_metric_card(label, value):
         box-sizing: border-box;
         text-align: center;
     ">
-        <div style="font-size: 14px; color: #666; margin-bottom: 0.5rem;">{label}</div>
-        <div style="font-size: 24px; font-weight: bold;">{value}</div>
+        <div class="metric-card-label" style="font-size: 14px; color: #666; margin-bottom: 0.5rem;">{label}</div>
+        <div class="metric-card-value" style="font-size: 24px; font-weight: bold;">{value}</div>
     </div>
     """
 
@@ -339,13 +385,15 @@ if time_period != "自定义":  # 自定义时间粒度不显示趋势图
                      labels={'value': '金额（元）', 'period': '时间', 'variable': '指标'}, 
                      color_discrete_map={'总资产': 'blue', '总负债': 'red'})
         # 设置颜色和样式
-        fig.update_traces(line=dict(width=3))
+        fig.update_traces(line=dict(width=2))  # 减少线条宽度
         fig.update_layout(
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            height=430  # 设置合适的图表高度，减少垂直空间占用
+            height=350,  # 进一步降低图表高度，减少渲染复杂度
+            margin=dict(l=10, r=10, t=30, b=10),  # 减少边距，压缩图表空间
+            hovermode="x unified"  # 优化悬停效果，减少渲染负担
         )
         
-        st.plotly_chart(fig, use_container_width=True, key="trend_line")
+        st.plotly_chart(fig, width='stretch', key="trend_line")
     else:
         st.info("没有足够的历史数据生成趋势图")
 else:
@@ -357,24 +405,41 @@ c1, c2 = st.columns(2)
 asset_df = df_detail[df_detail['subject_type']=='资产']
 c1.subheader("资产构成")
 if not asset_df.empty:
-    c1.plotly_chart(px.pie(asset_df, values="current_balance", names="subject_name", hole=0.3), use_container_width=True, key="asset_pie")
+    # 创建资产饼图并优化
+    asset_fig = px.pie(asset_df, values="current_balance", names="subject_name", hole=0.3)
+    asset_fig.update_layout(
+        height=300,  # 降低饼图高度
+        margin=dict(l=10, r=10, t=30, b=10),  # 减少边距
+        legend=dict(font=dict(size=12)),  # 减小图例字体
+        hovermode="closest"  # 优化悬停效果
+    )
+    c1.plotly_chart(asset_fig, width='stretch', key="asset_pie")
 else:
     c1.info("当前时间范围内没有资产数据")
 # 负债饼图
 debt_df = df_detail[df_detail["subject_type"]=="负债"]
 c2.subheader("负债构成")
 if not debt_df.empty:
-    c2.plotly_chart(px.pie(debt_df, values="current_balance", names="subject_name", hole=0.3), use_container_width=True, key="debt_pie")
+    # 创建负债饼图并优化
+    debt_fig = px.pie(debt_df, values="current_balance", names="subject_name", hole=0.3)
+    debt_fig.update_layout(
+        height=300,  # 降低饼图高度
+        margin=dict(l=10, r=10, t=30, b=10),  # 减少边距
+        legend=dict(font=dict(size=12)),  # 减小图例字体
+        hovermode="closest"  # 优化悬停效果
+    )
+    c2.plotly_chart(debt_fig, width='stretch', key="debt_pie")
 else:
     c2.info("当前时间范围内没有负债数据")
 
 # 7. 明细表格（一键显示，带格式化）
 st.subheader("资产负债明细")
 if not df_detail.empty:
-    df_show = df_detail[["subject_name", "subject_type", "current_balance", "remark"]]
+    # 创建一个新的DataFrame来避免SettingWithCopyWarning
+    df_show = df_detail[["subject_name", "subject_type", "current_balance", "remark"]].copy()
     df_show.columns = ["科目", "类型", "金额", "备注"]
     # 金额格式化
     df_show["金额"] = df_show["金额"].apply(lambda x: f"¥{x:,.2f}")
-    st.dataframe(df_show, use_container_width=True)
+    st.dataframe(df_show, width='stretch')  # 使用新参数width='stretch'替代use_container_width
 else:
     st.info("当前时间范围内没有数据")
