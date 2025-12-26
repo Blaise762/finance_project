@@ -7,4 +7,4 @@ MYSQL_INFO = {
 }
 
 
-TITLE = "个人资产负债表可视化"
+TITLE = "个人资产负债表"
