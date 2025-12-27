@@ -439,12 +439,18 @@ c1, c2 = st.columns(2)
 asset_df = df_detail[df_detail['subject_type']=='资产']
 c1.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>资产构成</h2>", unsafe_allow_html=True)
 if not asset_df.empty:
-    # 创建资产饼图并优化
+    # 创建资产饼图并优化 - 显示科目名称+占比
     asset_fig = px.pie(asset_df, values="current_balance", names="subject_name", hole=0.3)
+    asset_fig.update_traces(
+        textposition="auto",  # 自动调整文本位置
+        textfont_size=12,  # 设置文本字体大小
+        textinfo="label+percent",  # 显示科目名称+占比
+        hovertemplate="%{label}: ¥%{value:,.2f} (%{percent})"  # 优化悬停显示
+    )
     asset_fig.update_layout(
         height=300,  # 降低饼图高度
         margin=dict(l=10, r=10, t=30, b=10),  # 减少边距
-        legend=dict(font=dict(size=12)),  # 减小图例字体
+        legend=dict(font=dict(size=11)),  # 减小图例字体
         hovermode="closest"  # 优化悬停效果
     )
     c1.plotly_chart(asset_fig, width='stretch', key="asset_pie")
@@ -454,12 +460,18 @@ else:
 debt_df = df_detail[df_detail["subject_type"]=="负债"]
 c2.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>负债构成</h2>", unsafe_allow_html=True)
 if not debt_df.empty:
-    # 创建负债饼图并优化
+    # 创建负债饼图并优化 - 显示科目名称+占比
     debt_fig = px.pie(debt_df, values="current_balance", names="subject_name", hole=0.3)
+    debt_fig.update_traces(
+        textposition="auto",  # 自动调整文本位置
+        textfont_size=12,  # 设置文本字体大小
+        textinfo="label+percent",  # 显示科目名称+占比
+        hovertemplate="%{label}: ¥%{value:,.2f} (%{percent})"  # 优化悬停显示
+    )
     debt_fig.update_layout(
         height=300,  # 降低饼图高度
         margin=dict(l=10, r=10, t=30, b=10),  # 减少边距
-        legend=dict(font=dict(size=12)),  # 减小图例字体
+        legend=dict(font=dict(size=11)),  # 减小图例字体
         hovermode="closest"  # 优化悬停效果
     )
     c2.plotly_chart(debt_fig, width='stretch', key="debt_pie")
