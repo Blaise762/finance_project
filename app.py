@@ -308,8 +308,11 @@ body {
 st.markdown(f"<h1 style='font-size: 30px !important; color: #1a5276 !important;'>{TITLE}</h1>", unsafe_allow_html=True)
 
 # 2. 时间选择控件
-st.sidebar.subheader("时间范围选择")
-time_period = st.sidebar.selectbox("选择时间粒度", ["年度", "季度", "月度", "自定义"])
+# 使用三列布局将控件排成一行
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    time_period = st.selectbox("选择时间粒度", ["年度", "季度", "月度", "自定义"])
 
 # 初始化日期变量
 start_date = None
@@ -317,12 +320,15 @@ end_date = None
 
 # 根据选择的时间粒度显示不同的控件
 if time_period == "年度":
-    selected_year = st.sidebar.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
+    with col2:
+        selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
     start_date = f"{selected_year}-01-01"
     end_date = f"{selected_year}-12-31"
 elif time_period == "季度":
-    selected_year = st.sidebar.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
-    selected_quarter = st.sidebar.selectbox("选择季度", [1, 2, 3, 4])
+    with col2:
+        selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
+    with col3:
+        selected_quarter = st.selectbox("选择季度", [1, 2, 3, 4])
     if selected_quarter == 1:
         start_date = f"{selected_year}-01-01"
         end_date = f"{selected_year}-03-31"
@@ -336,8 +342,10 @@ elif time_period == "季度":
         start_date = f"{selected_year}-10-01"
         end_date = f"{selected_year}-12-31"
 elif time_period == "月度":
-    selected_year = st.sidebar.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
-    selected_month = st.sidebar.selectbox("选择月份", range(1, 13), index=11)  # 默认12月
+    with col2:
+        selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
+    with col3:
+        selected_month = st.selectbox("选择月份", range(1, 13), index=11)  # 默认12月
     start_date = f"{selected_year}-{selected_month:02d}-01"
     if selected_month == 12:
         end_date = f"{selected_year}-{selected_month}-31"
@@ -350,8 +358,10 @@ else:  # 自定义
     # 设置默认开始日期为结束日期的前一年
     default_start_date = default_end_date - pd.DateOffset(years=1)
     
-    start_date = st.sidebar.date_input("开始日期", value=default_start_date).strftime("%Y-%m-%d")
-    end_date = st.sidebar.date_input("结束日期", value=default_end_date).strftime("%Y-%m-%d")
+    with col2:
+        start_date = st.date_input("开始日期", value=default_start_date).strftime("%Y-%m-%d")
+    with col3:
+        end_date = st.date_input("结束日期", value=default_end_date).strftime("%Y-%m-%d")
 
 # 3. 加载数据
 df_detail, df_sum = get_data(time_period, start_date, end_date)
@@ -416,7 +426,7 @@ if time_period != "自定义":  # 自定义时间粒度不显示趋势图
         fig = px.line(trend_df, x='period', y=['总资产', '总负债'], 
                      title=title, 
                      markers=True, 
-                     labels={'value': '金额（元）', 'period': '时间', 'variable': '指标'}, 
+                     labels={'value': '金额（元）', 'period': '时间','variable': ''}, 
                      color_discrete_map={'总资产': 'blue', '总负债': 'red'})
         # 设置颜色和样式
         fig.update_traces(line=dict(width=2))  # 减少线条宽度
@@ -437,19 +447,20 @@ else:
 c1, c2 = st.columns(2)
 # 资产饼图
 asset_df = df_detail[df_detail['subject_type']=='资产']
-c1.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>资产构成</h2>", unsafe_allow_html=True)
+c1.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>资产构成占比</h2>", unsafe_allow_html=True)
 if not asset_df.empty:
     # 创建资产饼图并优化 - 显示科目名称+占比
-    asset_fig = px.pie(asset_df, values="current_balance", names="subject_name", hole=0.3)
+    asset_fig = px.pie(asset_df, values="current_balance", names="subject_name", hole=0)  # 增大中心孔，进一步缩小饼图半径
     asset_fig.update_traces(
-        textposition="auto",  # 自动调整文本位置
-        textfont_size=12,  # 设置文本字体大小
+        textposition="outside",  # 将标签移到饼图外部
+        textfont_size=10,  # 减小字体大小，避免遮挡
         textinfo="label+percent",  # 显示科目名称+占比
-        hovertemplate="%{label}: ¥%{value:,.2f} (%{percent})"  # 优化悬停显示
+        hovertemplate="%{label}: ¥%{value:,.2f} (%{percent})",  # 优化悬停显示
+        insidetextorientation='auto'  # 优化内部文本方向
     )
     asset_fig.update_layout(
-        height=300,  # 降低饼图高度
-        margin=dict(l=10, r=10, t=30, b=10),  # 减少边距
+        height=300,  
+        margin=dict(l=50, r=50, t=70, b=70),  # 增加左右边距，为标签提供更多空间
         legend=dict(font=dict(size=11)),  # 减小图例字体
         hovermode="closest"  # 优化悬停效果
     )
@@ -458,19 +469,20 @@ else:
     c1.info("当前时间范围内没有资产数据")
 # 负债饼图
 debt_df = df_detail[df_detail["subject_type"]=="负债"]
-c2.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>负债构成</h2>", unsafe_allow_html=True)
+c2.markdown("<h2 style='font-size: 22px !important; color: #1a5276 !important;'>负债构成占比</h2>", unsafe_allow_html=True)
 if not debt_df.empty:
     # 创建负债饼图并优化 - 显示科目名称+占比
-    debt_fig = px.pie(debt_df, values="current_balance", names="subject_name", hole=0.3)
+    debt_fig = px.pie(debt_df, values="current_balance", names="subject_name", hole=0)  # 增大中心孔，进一步缩小饼图半径
     debt_fig.update_traces(
-        textposition="auto",  # 自动调整文本位置
-        textfont_size=12,  # 设置文本字体大小
+        textposition="outside",  # 将标签移到饼图外部
+        textfont_size=10,  # 减小字体大小，避免遮挡
         textinfo="label+percent",  # 显示科目名称+占比
-        hovertemplate="%{label}: ¥%{value:,.2f} (%{percent})"  # 优化悬停显示
+        hovertemplate="%{label}: ¥%{value:,.2f} (%{percent})",  # 优化悬停显示
+        insidetextorientation='auto'  # 优化内部文本方向
     )
     debt_fig.update_layout(
-        height=300,  # 降低饼图高度
-        margin=dict(l=10, r=10, t=30, b=10),  # 减少边距
+        height=300,  
+        margin=dict(l=50, r=50, t=70, b=70),  # 增加左右边距，为标签提供更多空间
         legend=dict(font=dict(size=11)),  # 减小图例字体
         hovermode="closest"  # 优化悬停效果
     )
