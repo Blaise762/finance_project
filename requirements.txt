@@ -3,3 +3,4 @@ pymysql
 pandas
 plotly
 pyinstaller
+openpyxl
