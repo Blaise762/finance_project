@@ -225,6 +225,7 @@ def generate_excel_template():
     template_data = {
         '日期': [default_date] * len(subjects_df),
         '科目名称': subjects_df['subject_name'].tolist(),
+        '科目类型': subjects_df['subject_type'].tolist(),
         '金额': [0.0] * len(subjects_df),
         '备注': [''] * len(subjects_df)
     }
@@ -237,39 +238,42 @@ def generate_excel_template():
     ws.title = "资产负债数据"
     
     # 写入表头
-    headers = ['日期', '科目名称', '金额', '备注']
+    headers = ['日期', '科目名称', '科目类型', '金额', '备注']
     ws.append(headers)
     
     # 设置列宽
     ws.column_dimensions['A'].width = 12
     ws.column_dimensions['B'].width = 20
     ws.column_dimensions['C'].width = 15
-    ws.column_dimensions['D'].width = 30
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 30
     
     # 写入数据
     for row in dataframe_to_rows(template_df, index=False, header=False):
         ws.append(row)
     
-    # 创建下拉列表验证
+    # 移除下拉列表验证，允许用户自由输入自定义科目
+    
+    # 重新定义subject_names用于设置列格式
     subject_names = subjects_df['subject_name'].tolist()
-    from openpyxl.worksheet.datavalidation import DataValidation
-    
-    # 科目名称下拉列表
-    dv = DataValidation(type="list", formula1=f"'资产负债数据'!$B$2:$B${len(subject_names)+1}", allow_blank=True)
-    dv.error = "请从下拉列表中选择科目"
-    dv.errorTitle = "无效输入"
-    
-    # 应用到科目名称列（从第2行开始）
-    ws.add_data_validation(dv)
-    dv.add(f"B2:B{len(subject_names)+1}")
     
     # 日期列格式化为YYYY-MM-DD
     for cell in ws[f"A2:A{len(subject_names)+1}"]:
         cell[0].number_format = "yyyy-mm-dd"
     
     # 金额列格式化为数字
-    for cell in ws[f"C2:C{len(subject_names)+1}"]:
+    for cell in ws[f"D2:D{len(subject_names)+1}"]:
         cell[0].number_format = "#,##0.00"
+    
+    # 为科目类型列添加下拉选择（资产/负债）
+    from openpyxl.worksheet.datavalidation import DataValidation
+    
+    # 设置数据验证规则
+    dv = DataValidation(type="list", formula1='"资产,负债"', allow_blank=False)
+    
+    # 应用到科目类型列（C列）
+    dv.sqref = "C2:C1000"  # 直接设置范围
+    ws.add_data_validation(dv)
     
     # 保存到内存
     buffer = BytesIO()
@@ -285,40 +289,51 @@ def parse_uploaded_file(uploaded_file):
         df = pd.read_excel(uploaded_file, sheet_name=0)
         
         # 验证必要的列是否存在
-        required_columns = ['日期', '科目名称', '金额']
+        required_columns = ['日期', '科目名称', '科目类型', '金额']
         if not all(col in df.columns for col in required_columns):
             st.error(f"上传的文件缺少必要的列: {', '.join(required_columns)}")
-            return None
+            return None, None, None
         
         # 处理缺失值
         # 日期列不能为空
         if df['日期'].isnull().any():
             st.error("日期列不能包含空值")
-            return None
+            return None, None, None
         
         # 验证日期格式
         try:
             df['日期'] = pd.to_datetime(df['日期']).dt.strftime('%Y-%m-%d')
         except:
             st.error("日期格式不正确，请使用YYYY-MM-DD格式")
-            return None
+            return None, None, None
         
         # 科目名称列不能为空
         if df['科目名称'].isnull().any():
             st.error("科目名称列不能包含空值")
-            return None
+            return None, None, None
+        
+        # 科目类型列不能为空
+        if df['科目类型'].isnull().any():
+            st.error("科目类型列不能包含空值")
+            return None, None, None
+        
+        # 验证科目类型值
+        valid_types = ['资产', '负债']
+        if not df['科目类型'].isin(valid_types).all():
+            st.error("科目类型必须为'资产'或'负债'")
+            return None, None, None
         
         # 金额列不能为空
         if df['金额'].isnull().any():
             st.error("金额列不能包含空值")
-            return None
+            return None, None, None
         
         # 验证金额格式
         try:
             df['金额'] = pd.to_numeric(df['金额'])
         except:
             st.error("金额格式不正确，请输入数字")
-            return None
+            return None, None, None
         
         # 处理备注列（如果不存在则添加）
         if '备注' not in df.columns:
@@ -337,19 +352,21 @@ def parse_uploaded_file(uploaded_file):
         # 添加科目ID列
         df['subject_id'] = df['科目名称'].map(subject_map)
         
-        # 验证所有科目名称是否存在
-        if df['subject_id'].isnull().any():
-            invalid_subjects = df[df['subject_id'].isnull()]['科目名称'].unique()
-            st.error(f"以下科目名称不存在: {', '.join(invalid_subjects)}")
-            return None
+        # 分离已知科目和未知科目
+        known_subjects_df = df[df['subject_id'].notnull()].copy()
+        unknown_subjects_df = df[df['subject_id'].isnull()].copy()
         
-        # 转换数据类型
-        df['subject_id'] = df['subject_id'].astype(int)
+        # 获取未知科目列表
+        unknown_subjects = unknown_subjects_df['科目名称'].unique().tolist()
         
-        return df
+        # 如果有已知科目，转换数据类型
+        if not known_subjects_df.empty:
+            known_subjects_df['subject_id'] = known_subjects_df['subject_id'].astype(int)
+        
+        return known_subjects_df, unknown_subjects, df
     except Exception as e:
         st.error(f"文件解析失败: {e}")
-        return None
+        return None, None, None
 
 # 将数据导入到数据库
 def import_data_to_db(df, phone_number):
@@ -441,6 +458,14 @@ h3, .stHeadingContainer h3, [data-testid="stMarkdownContainer"] h3 {
     margin: 0 !important; 
 }}
 
+/* 手机号输入容器样式 */
+.phone-input-container {{ 
+    border: 1px solid #e0e0e0; 
+    border-radius: 5px; 
+    padding: 20px; 
+    margin: 10px 0; 
+}}
+
 /* 确保在移动端正常显示 */
 @media (max-width: 768px) {
     /* 进一步调整标题大小，解决重合问题 */
@@ -524,23 +549,30 @@ if 'phone_number' not in st.session_state:
 
 # 只有在用户没有输入有效的手机号时，才显示输入界面
 if not (st.session_state.phone_number and len(st.session_state.phone_number) == 11):
-    # 创建一个容器用于用户输入
-    with st.container():
-        # 居中显示手机号输入
-        st.markdown("<h3 style='text-align: center;'>请输入您的手机号</h3>", unsafe_allow_html=True)
+    # 创建一个简单的表单来确保所有元素被包裹在边框内
+    with st.form("phone_form", border=True):
+        # 显示标题
+        st.markdown("<h3 style='text-align: center;'>请输入您的手机号📱</h3>", unsafe_allow_html=True)
+        
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             phone_input = st.text_input("手机号", value=st.session_state.phone_number, placeholder="请输入11位手机号", max_chars=11)
-            
-            # 检查手机号格式
-            if phone_input:
-                if len(phone_input) == 11 and phone_input.isdigit() and phone_input.startswith('1'):
-                    st.session_state.phone_number = phone_input
-                    st.success(f"欢迎使用，手机号：{phone_input}")
-                    # 刷新页面以隐藏输入界面
-                    st.rerun()
-                else:
-                    st.error("请输入有效的11位手机号")
+        
+        # 检查手机号格式
+        if phone_input:
+            if len(phone_input) == 11 and phone_input.isdigit() and phone_input.startswith('1'):
+                st.session_state.phone_number = phone_input
+                st.success(f"欢迎使用，手机号：{phone_input}")
+                # 刷新页面以隐藏输入界面
+                st.rerun()
+            else:
+                st.error("请输入有效的11位手机号")
+        
+        # 将提交按钮居中显示
+        col_submit1, col_submit2, col_submit3 = st.columns([2.7, 2, 1])
+        with col_submit2:
+            st.form_submit_button("提交")
+    
     # 阻止继续执行，直到用户输入有效手机号
     st.stop()
 
@@ -564,19 +596,61 @@ if st.session_state.phone_number and len(st.session_state.phone_number) == 11:
     # 导入按钮
     if uploaded_file is not None:
         if st.button("🚀 开始导入数据", key="import_button"):
-            with st.spinner("正在导入数据..."):
+            with st.spinner("正在解析文件..."):
                 # 解析上传的文件
-                df = parse_uploaded_file(uploaded_file)
-                if df is not None:
-                    # 将数据导入到数据库
-                    success, message = import_data_to_db(df, st.session_state.phone_number)
-                    if success:
-                        st.success(message)
-                        # 清除缓存并重新加载数据
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error(message)
+                known_subjects_df, unknown_subjects, full_df = parse_uploaded_file(uploaded_file)
+                
+                if known_subjects_df is not None:
+                    all_subjects_added = True
+                    new_subjects_map = {}
+                    
+                    # 处理所有数据，包括已知和未知科目
+                    with st.spinner("正在导入数据..."):
+                        # 连接数据库
+                        conn = get_db_conn()
+                        cursor = conn.cursor()
+                        conn.begin()
+                        
+                        try:
+                            # 处理未知科目，直接从Excel读取科目类型
+                            unknown_subjects_df = full_df[full_df['subject_id'].isnull()].copy()
+                            for index, row in unknown_subjects_df.iterrows():
+                                subject_name = row['科目名称']
+                                subject_type = row['科目类型']  # 从Excel读取科目类型
+                                
+                                # 插入新科目到数据库
+                                insert_subject_sql = "INSERT INTO t_personal_subject (subject_name, subject_type) VALUES (%s, %s)"
+                                cursor.execute(insert_subject_sql, (subject_name, subject_type))
+                            
+                            # 提交新科目的添加
+                            conn.commit()
+                            
+                            # 清除缓存，确保获取最新的科目数据
+                            st.cache_data.clear()
+                            
+                            # 重新获取所有科目映射，包括新添加的
+                            subjects_df = get_all_subjects()
+                            subject_map = pd.Series(subjects_df.subject_id.values, index=subjects_df.subject_name).to_dict()
+                            
+                            # 更新所有数据的科目ID
+                            full_df['subject_id'] = full_df['科目名称'].map(subject_map)
+                            full_df['subject_id'] = full_df['subject_id'].astype(int)
+                            
+                            # 将数据导入到数据库
+                            success, message = import_data_to_db(full_df, st.session_state.phone_number)
+                            if success:
+                                st.success(message)
+                                # 清除缓存并重新加载数据
+                                st.cache_data.clear()
+                                st.rerun()
+                            else:
+                                st.error(message)
+                        except Exception as e:
+                            conn.rollback()
+                            st.error(f"数据导入失败: {e}")
+                        finally:
+                            cursor.close()
+                            conn.close()
     
     # 添加分隔线
     st.markdown("---")
