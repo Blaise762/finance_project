@@ -646,10 +646,26 @@ if st.session_state.phone_number and len(st.session_state.phone_number) == 11:
                             
                             # 重新获取所有科目映射，包括新添加的
                             subjects_df = get_all_subjects()
-                            subject_map = pd.Series(subjects_df.subject_id.values, index=subjects_df.subject_name).to_dict()
                             
-                            # 更新所有数据的科目ID
-                            full_df['subject_id'] = full_df['科目名称'].map(subject_map)
+                            # 创建科目名称到ID列表的映射（处理重复科目名称）
+                            subject_map = {}
+                            for _, row in subjects_df.iterrows():
+                                name = row['subject_name']
+                                if name not in subject_map:
+                                    subject_map[name] = []
+                                subject_map[name].append(row['subject_id'])
+                            
+                            # 为每个相同科目名称的行分配不同的ID
+                            full_df['subject_id'] = None
+                            for name, ids in subject_map.items():
+                                # 找出所有使用这个科目名称的行
+                                name_rows = full_df[full_df['科目名称'] == name]
+                                if not name_rows.empty:
+                                    # 循环分配ID
+                                    for i, (idx, row) in enumerate(name_rows.iterrows()):
+                                        full_df.at[idx, 'subject_id'] = ids[i % len(ids)]
+                            
+                            # 转换为整数类型
                             full_df['subject_id'] = full_df['subject_id'].astype(int)
                             
                             # 将数据导入到数据库
