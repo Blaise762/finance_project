@@ -345,12 +345,28 @@ def parse_uploaded_file(uploaded_file):
         # 过滤掉金额为0的行
         df = df[df['金额'] != 0].copy()
         
-        # 获取科目映射（名称到ID）
+        # 获取科目映射（名称到ID列表）
         subjects_df = get_all_subjects()
-        subject_map = pd.Series(subjects_df.subject_id.values, index=subjects_df.subject_name).to_dict()
         
-        # 添加科目ID列
-        df['subject_id'] = df['科目名称'].map(subject_map)
+        # 创建科目名称到ID列表的映射
+        subject_map = {}
+        for _, row in subjects_df.iterrows():
+            name = row['subject_name']
+            if name not in subject_map:
+                subject_map[name] = []
+            subject_map[name].append(row['subject_id'])
+        
+        # 添加科目ID列，处理相同科目名称的情况
+        df['subject_id'] = None
+        
+        # 为每个相同科目名称的行分配不同的ID
+        for name, ids in subject_map.items():
+            # 找出所有使用这个科目名称的行
+            name_rows = df[df['科目名称'] == name]
+            if not name_rows.empty:
+                # 循环分配ID
+                for i, (idx, row) in enumerate(name_rows.iterrows()):
+                    df.at[idx, 'subject_id'] = ids[i % len(ids)]
         
         # 分离已知科目和未知科目
         known_subjects_df = df[df['subject_id'].notnull()].copy()
