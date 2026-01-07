@@ -669,12 +669,12 @@ if st.session_state.phone_number and len(st.session_state.phone_number) == 11:
     # 根据选择的时间粒度显示不同的控件
     if time_period == "年度":
         with col2:
-            selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
+            selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=3)  # 默认2026年
         start_date = f"{selected_year}-01-01"
         end_date = f"{selected_year}-12-31"
     elif time_period == "季度":
         with col2:
-            selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
+            selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=3)  # 默认2026年
         with col3:
             selected_quarter = st.selectbox("选择季度", [1, 2, 3, 4])
         if selected_quarter == 1:
@@ -691,9 +691,9 @@ if st.session_state.phone_number and len(st.session_state.phone_number) == 11:
             end_date = f"{selected_year}-12-31"
     elif time_period == "月度":
         with col2:
-            selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=2)  # 默认2025年
+            selected_year = st.selectbox("选择年份", [2023, 2024, 2025, 2026], index=3)  # 默认2026年
         with col3:
-            selected_month = st.selectbox("选择月份", range(1, 13), index=11)  # 默认12月
+            selected_month = st.selectbox("选择月份", range(1, 13), index=0)  # 默认1月
         start_date = f"{selected_year}-{selected_month:02d}-01"
         if selected_month == 12:
             end_date = f"{selected_year}-{selected_month}-31"
